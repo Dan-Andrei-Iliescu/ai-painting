@@ -1,12 +1,14 @@
+import sys
+import torch
+import argparse
+
 import numpy as np
 
+from scipy.special import comb
 from PIL import Image, ImageCms
-import torch
 from torch import nn
 from tqdm import tqdm
-
-import sys
-
+from skimage import io, color
 
 
 def gaussian_kernel(size, sigma=2., dim=2, channels=3):
@@ -35,94 +37,72 @@ def gaussian_kernel(size, sigma=2., dim=2, channels=3):
     return kernel
 
 
-device = torch.device("cuda")
+def geom_e_max(p, n, trials=10):
+	"""
+		Expected maximum of <n> geometric i.i.d. r.v. with success prob <p>
+	"""
+	vals = np.zeros((trials,))
+	for trial in range(trials):
+		vals[trial] = np.amax(np.random.geometric(p, n))
 
-paint_path = "data/mona_lisa.png"
-tex_path = "data/martyna_norm.png"
+	return np.mean(vals)
+
+
+# Input args
+parser = argparse.ArgumentParser(description='Thief')
+parser.add_argument('--paint_img', type=str, default='mona_lisa.png')
+parser.add_argument('--tex_img', type=str, default='martyna_norm.png')
+parser.add_argument('--num_patches', type=int, default=512)
+parser.add_argument('--pivot', type=float, default=0.43)
+parser.add_argument('--num_trials', type=int, default=256)
+args = parser.parse_args()
+
+paint_path = f"data/{args.paint_img}"
+tex_path = f"data/{args.tex_img}"
+num_patches_static = args.num_patches
+pivot = args.pivot
+num_trials = args.num_trials
+
+device = torch.device("cuda")
 result_path = "results/tinker.png"
 
-# Process inputs
-srgb_profile = ImageCms.createProfile("sRGB")
-lab_profile  = ImageCms.createProfile("LAB")
-rgb2lab_transform = ImageCms.buildTransformFromOpenProfiles(
-	srgb_profile, lab_profile, "RGB", "LAB"
-)
-lab2rgb_transform = ImageCms.buildTransformFromOpenProfiles(
-	lab_profile, srgb_profile, "LAB", "RGB"
-)
 
-x = Image.open(paint_path).convert("RGB")
-x = ImageCms.applyTransform(x, rgb2lab_transform)
-x = np.array(x)/255.
-print(x.shape)
+# Process images
+x = io.imread(paint_path)[:, :, :3]
+x = color.rgb2lab(x)
+x = np.array(x)
+
 x_height = x.shape[0]
 x_width = x.shape[1]
 x_channels = x.shape[2]
 x = torch.from_numpy(x).to(device)
 
-y = Image.open(tex_path).convert("RGB")
-y = ImageCms.applyTransform(y, rgb2lab_transform)
-y = np.array(y)/255.
-print(y.shape)
+y = io.imread(tex_path)[:, :, :3]
+y = color.rgb2lab(y)
+y = np.array(y)
+
 y_height = y.shape[0]
 y_width = y.shape[1]
 y_channels = y.shape[2]
 y = torch.from_numpy(y).to(device)
 
-
-num_patches = 4096
-chosen_patches = 1024
-res = torch.zeros_like(x)
-
-
-"""
-# Locations in images
-x_row_locs = torch.arange(x_height)
-x_col_locs = torch.arange(x_width)
-x_locs = torch.cartesian_prod(x_row_locs, x_col_locs)
-x_num_locs = x_locs.shape[0]
-
-y_row_locs = torch.arange(y_height)
-y_col_locs = torch.arange(y_width)
-y_locs = torch.cartesian_prod(y_row_locs, y_col_locs)
-y_num_locs = y_locs.shape[1]
+res = torch.zeros_like(x) + torch.Tensor([50., 0., 0.]).to(device)
 
 
 # For decreasing kernel sizes
-num_kernels = 2
+num_kernels = 6
 for kernel_idx in tqdm(range(num_kernels)):
-	kernel_size = 2**(num_kernels - kernel_idx)
+	kernel_size = np.int16(2*2**(num_kernels - kernel_idx))
 	patch_size = 2*kernel_size+1
 	kernel = gaussian_kernel(kernel_size).to(device).view(
 		patch_size, patch_size, 3)
 
-	# Update probabilities
-	x_diff = torch.zeros_like(x) + x
-	x_prob = torch.zeros((x_num_locs,))
-
-	order = torch.argsort(x_diff, descending=True)
-	x_locs = x_locs[order[torch.randint(chosen_patches, (num_patches,))]]
-
-	for x_loc in x_locs:
-		# Check a patch is possible at location
-		cond = (kernel_size <= x_loc[0] < x_height-kernel_size) \
-			&& (kernel_size <= x_loc[1] < x_width-kernel_size)  
-		if cond:
-
-
-
-sys.exit(0)
-"""
-
-num_trials = 256
-
-# For decreasing kernel sizes
-num_kernels = 7
-for kernel_idx in tqdm(range(num_kernels)):
-	kernel_size = 2**(num_kernels - kernel_idx)
-	patch_size = 2*kernel_size+1
-	kernel = gaussian_kernel(kernel_size).to(device).view(
-		patch_size, patch_size, 3)
+	num_patches = np.uint16(num_patches_static * np.sqrt(2)**(kernel_idx))
+	prob = pivot / (1.33**kernel_idx)
+	e_max = geom_e_max(prob, num_patches, trials=100)
+	print(kernel_size)
+	print(num_patches)
+	print(e_max)
 
 	# For selected patches at this size
 	x_rows = torch.randint(x_height-patch_size, (num_patches,)) + kernel_size
@@ -135,40 +115,56 @@ for kernel_idx in tqdm(range(num_kernels)):
 	for patch_idx in range(num_patches):
 		row_idx = x_rows[patch_idx]
 		col_idx = x_cols[patch_idx]
-		patches[patch_idx] = x[row_idx-kernel_size:row_idx+kernel_size+1,
+		patch = x[row_idx-kernel_size:row_idx+kernel_size+1,
 			col_idx-kernel_size:col_idx+kernel_size+1]
+
+		# Normalize
+		# patch -= torch.amin(patch)
+		# patch /= torch.amax(patch)
+		patches[patch_idx] = patch
 
 	# Measure uniqueness
 	for patch_idx in range(num_patches):
-		test = torch.mean(torch.abs(patches[patch_idx]-patches), dim=(1, 2, 3))
-		uniq[patch_idx] = torch.mean(torch.topk(test, k=2, largest=False)[0])
+		# test = torch.mean(torch.abs(patches[patch_idx]-patches)**2, dim=(1, 2, 3))
+		# uniq[patch_idx] = torch.mean(torch.topk(test, k=2, largest=False)[0])
+		# uniq[patch_idx] = torch.mean(test)
+		patch_mean = torch.mean(patches[patch_idx], dim=(0, 1))
+		patch_var = torch.mean(torch.abs(patch-patch_mean)**2)
+		uniq[patch_idx] = patch_var
 
-	# Choose unique ones
+
+	# Choose unique ones via geometric distribution
 	order = torch.argsort(uniq, descending=True)
-	perm = order[torch.randint(chosen_patches, (chosen_patches,))]
-	x_rows = x_rows[perm]
-	# 	+ torch.randint(-kernel_size, kernel_size, (chosen_patches,))
-	x_cols = x_cols[perm]
-	# 	+ torch.randint(-kernel_size, kernel_size, (chosen_patches,))
+	perm = torch.zeros((num_patches,), dtype=torch.long).geometric_(p=prob)\
+		.to(device) % num_patches
+	x_rows = x_rows[order[perm]] \
+	 	+ torch.randint(-kernel_size, kernel_size, (num_patches,))
+	x_cols = x_cols[order[perm]] \
+	 	+ torch.randint(-kernel_size, kernel_size, (num_patches,))
 
+	
 	count = 0
-	for patch_idx in range(chosen_patches):
+	for patch_idx in range(num_patches):
 		row_idx = x_rows[patch_idx]
 		col_idx = x_cols[patch_idx]
+
+		row_idx = max(row_idx, kernel_size)
+		col_idx = max(col_idx, kernel_size)
+		row_idx = min(row_idx, x_height-kernel_size-1)
+		col_idx = min(col_idx, x_width-kernel_size-1)
+
 		x_patch = x[row_idx-kernel_size:row_idx+kernel_size+1,
 			col_idx-kernel_size:col_idx+kernel_size+1]
 		res_patch = res[row_idx-kernel_size:row_idx+kernel_size+1,
 			col_idx-kernel_size:col_idx+kernel_size+1]
-		# uniq[patch_idx] += torch.mean(torch.abs(x_patch - patches)**2)
 
-		# Uniqueness of this patch
-		
 		"""
+		# Uniqueness of this patch
 		res[row_idx-kernel_size:row_idx+kernel_size+1,
 			col_idx-kernel_size:col_idx+kernel_size+1
-		] += 0.02
-
+		] += torch.Tensor([0., 0.3, 0.]).to(device)
 		"""
+		
 		# For a while, select random patches from y
 		for idx in range(num_trials):
 			y_row = torch.randint(kernel_size, y_height-kernel_size-1, (1,))
@@ -188,11 +184,10 @@ for kernel_idx in tqdm(range(num_kernels)):
 				break
 
 	print(f"\n{count}\n")
-
+	
 
 # Save output
 img = res.cpu().detach().numpy()
-img = Image.fromarray(np.uint8(img*255), mode="LAB")
-#img = Image.fromarray(np.uint8(img*255))
-img = ImageCms.applyTransform(img, lab2rgb_transform)
-img.save(result_path)
+img = color.lab2rgb(img)
+img = np.uint8(img*255)
+io.imsave(fname=result_path, arr=img)
