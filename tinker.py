@@ -37,8 +37,8 @@ def gaussian_kernel(size, sigma=2., dim=2, channels=3):
 
 device = torch.device("cuda")
 
-paint_path = "data/block.png"
-tex_path = "data/mona_lisa.png"
+paint_path = "data/mona_lisa.png"
+tex_path = "data/martyna_norm.png"
 result_path = "results/tinker.png"
 
 # Process inputs
@@ -114,7 +114,7 @@ for kernel_idx in tqdm(range(num_kernels)):
 sys.exit(0)
 """
 
-num_trials = 1024
+num_trials = 256
 
 # For decreasing kernel sizes
 num_kernels = 7
