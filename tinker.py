@@ -90,7 +90,7 @@ res = torch.zeros_like(x) + torch.Tensor([50., 0., 0.]).to(device)
 
 
 # For decreasing kernel sizes
-num_kernels = 6
+num_kernels = 7
 for kernel_idx in tqdm(range(num_kernels)):
 	kernel_size = np.int16(2*2**(num_kernels - kernel_idx))
 	patch_size = 2*kernel_size+1
@@ -175,7 +175,7 @@ for kernel_idx in tqdm(range(num_kernels)):
 			# Check if patch from y is a better fit to x
 			old_diff = torch.mean(torch.abs(res_patch - x_patch))
 			new_diff = torch.mean(torch.abs(y_patch - x_patch))
-			if new_diff < old_diff:
+			if new_diff < old_diff or kernel_idx == 0:
 				res[row_idx-kernel_size:row_idx+kernel_size+1,
 					col_idx-kernel_size:col_idx+kernel_size+1
 				] = y_patch
