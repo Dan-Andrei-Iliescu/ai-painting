@@ -53,7 +53,7 @@ parser = argparse.ArgumentParser(description='Thief')
 parser.add_argument('--paint_img', type=str, default='mona_lisa.png')
 parser.add_argument('--tex_img', type=str, default='martyna_norm.png')
 parser.add_argument('--num_patches', type=int, default=512)
-parser.add_argument('--pivot', type=float, default=0.43)
+parser.add_argument('--pivot', type=float, default=0.043)
 parser.add_argument('--num_trials', type=int, default=256)
 args = parser.parse_args()
 
@@ -158,11 +158,11 @@ for kernel_idx in tqdm(range(num_kernels)):
 		res_patch = res[row_idx-kernel_size:row_idx+kernel_size+1,
 			col_idx-kernel_size:col_idx+kernel_size+1]
 
-		"""
+		
 		# Uniqueness of this patch
 		res[row_idx-kernel_size:row_idx+kernel_size+1,
 			col_idx-kernel_size:col_idx+kernel_size+1
-		] += torch.Tensor([0., 0.3, 0.]).to(device)
+		] += torch.Tensor([0., 0.05, 0.]).to(device)
 		"""
 		
 		# For a while, select random patches from y
@@ -182,6 +182,8 @@ for kernel_idx in tqdm(range(num_kernels)):
 				count += 1
 
 				break
+
+		"""
 
 	print(f"\n{count}\n")
 	
