@@ -4,6 +4,10 @@ An algorithm that reconstructs one image *(the shape image)* using patches from 
 
 This project is the basis of an [art piece](https://www.behance.net/gallery/127536973/Seasons) that won the St Edmund's College, Cambridge Art Competition (Christmas Card Category).
 
+Shape Image | Appearance Image | Result Image
+:-:|:-:|:-:
+![vermeer.png](https://github.com/Dan-Andrei-Iliescu/ai-painting/blob/master/data/vermeer.png?raw=true)  |  ![gauguin.png](https://github.com/Dan-Andrei-Iliescu/ai-painting/blob/master/data/gauguin.png?raw=true) | ![portrait.png](https://github.com/Dan-Andrei-Iliescu/ai-painting/blob/master/results/portrait.png?raw=true)
+
 ## Instructions
 
 1. Clone the repo.
