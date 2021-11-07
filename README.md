@@ -11,9 +11,9 @@ This project is the basis of an [art piece](https://www.behance.net/gallery/1275
 3. Run the following command:
 ```
 $ poetry run python painter.py \
-    --shape_img shape.png \
-    --app_img app.png \
-    --res_img res.png \
+    --shape_img vermeer.png \
+    --app_img gauguin.png \
+    --res_img portrait.png \
     --num_patches 1024 \
     --num_trials 8
 ```
