@@ -2,6 +2,8 @@
 
 An algorithm that reconstructs one image *(the shape image)* using patches from another image *(the appearance image)*. It produces images with an unusual, mosaic-like texture, very different from the digital appearance of traditional neural style transfer.
 
+This project is the basis of an [art piece](https://www.behance.net/gallery/127536973/Seasons) that won the St Edmund's College, Cambridge Art Competition (Christmas Card Category).
+
 ## Instructions
 
 1. Clone the repo.
