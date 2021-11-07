@@ -9,8 +9,8 @@ from fire import Fire
 
 
 def main(
-        shape_img="shape.png", app_img="app.png", res_img="res.png",
-        num_patches=1024, num_trials=8):
+        shape_img="vermeer.png", app_img="gauguin.png", res_img="portrait.png",
+        num_patches=2048, num_trials=8):
 
     # Torch device (only CPU atm)
     device = torch.device("cpu")
